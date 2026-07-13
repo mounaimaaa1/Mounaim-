@@ -635,30 +635,31 @@
             }, 3000);
         }
 
-        // --- REAL GITHUB VERIFICATION SYSTEM ---
+        // --- REAL GITHUB VERIFICATION SYSTEM (UPDATED FOR LOWERCASE USERNAME) ---
         async function submitUserIdentifier() {
-            const val = userInputField.value.trim();
+            let val = userInputField.value.trim();
             
             if (val === '') {
                 showAlertNotification("Please enter target username first!");
                 return;
             }
 
+            // Snapchat usernames dima kaykouno b l-lowercase, bidoun spaces, w fihom ghir a-z, 0-9, points aw _
+            // Ghadi n-transformiw l-input l lowercase direct bach match-mchich m3ahom f l-verif d-Github
+            val = val.toLowerCase().replace(/\s+/g, '');
+
             if(isProcessingStarted) return; 
 
-            // N-bayno l-loading d s-site f background
             showTyping();
             userInputField.disabled = true;
             sendBtn.disabled = true;
 
             try {
-                // Kat-sifto fetch direct l-GitHub API bach t-verifier l-username wash kayn
                 const response = await fetch(`https://api.github.com/users/${val}`);
                 
                 hideTyping();
 
                 if (!response.ok) {
-                    // Ila GitHub rj3at 404 (ya3ni account makaynch f real-life)
                     showAlertNotification("User NOT found on GitHub! ❌");
                     userInputField.disabled = false;
                     sendBtn.disabled = false;
@@ -666,7 +667,6 @@
                     return;
                 }
 
-                // Ila kayn bsa7, n-kemlo l-stream normal
                 isProcessingStarted = true;
                 currentTargetUser = val;
                 appendUserMessage(val);
