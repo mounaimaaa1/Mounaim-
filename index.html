@@ -53,7 +53,7 @@
             color: var(--text-main);
             display: flex;
             justify-content: center;
-            height: 100dvh; /* Fix dial viewport dynamic */
+            height: 100dvh;
             overflow: hidden;
             transition: background-color 0.3s, color 0.3s;
         }
@@ -69,7 +69,7 @@
             background-size: 24px 24px, 40px 40px, 40px 40px;
             display: flex;
             flex-direction: column;
-            height: 100dvh; /* Fix dial height f mobile */
+            height: 100dvh;
             position: relative;
             overflow: hidden;
             transition: background-color 0.3s;
@@ -94,7 +94,7 @@
             position: relative;
             border-bottom: 1px solid var(--border-color);
             transition: background-color 0.3s, border-color 0.3s;
-            padding-top: calc(16px + env(safe-area-inset-top)); /* bach mathetsh m3a l-gosa dial iPhone */
+            padding-top: calc(16px + env(safe-area-inset-top));
         }
 
         .header-left {
@@ -382,7 +382,7 @@
         .verification-icon { color: var(--snap-black); background: var(--snap-yellow); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
 
         .chat-input-area { 
-            padding: 12px 16px calc(24px + env(safe-area-inset-bottom)) 16px; /* Kat-b3ed dynamic-ly 3la safe areas dial l-phones */
+            padding: 12px 16px calc(24px + env(safe-area-inset-bottom)) 16px;
             background: var(--bg-chat);
             z-index: 10;
             transition: background-color 0.3s;
@@ -461,17 +461,12 @@
         .custom-alert span {
             color: var(--text-main);
         }
-        @keyframes pulseAlert {
-            0% { opacity: 0.6; }
-            50% { opacity: 1; }
-            100% { opacity: 0.6; }
-        }
     </style>
 </head>
 <body>
 
     <div class="custom-alert" id="errorAlert">
-        <i class="fa-solid fa-circle-exclamation"></i> <span>Please enter target Snapchat username first!</span>
+        <i class="fa-solid fa-circle-exclamation"></i> <span id="alertText">Please enter target Snapchat username first!</span>
     </div>
 
     <div class="chat-container">
@@ -536,6 +531,7 @@
         const themeToggleBtn = document.getElementById('themeToggleBtn');
         const snapMenu = document.getElementById('snapMenu');
         const errorAlert = document.getElementById('errorAlert');
+        const alertText = document.getElementById('alertText');
 
         let isProcessingStarted = false;
         let currentTargetUser = "";
@@ -543,7 +539,7 @@
 
         const optionImages = {
             'Snapchat Snaping': 'Snaping.jpg',
-            'Snap Camera': 'Camera.jpg',
+            'Snap Camera': 'Camera.JPG',
             'View Friends List': 'friends.jpg',
             'Private Stories': 'eyes.jpg',
             'Chat History': 'chat.jpg',
@@ -619,20 +615,33 @@
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
-        function showAlertNotification() {
+        function showAlertNotification(msg = "Please enter target Snapchat username first!") {
             if(alertTimeout) clearTimeout(alertTimeout);
-            
+            alertText.innerText = msg;
             errorAlert.classList.add('show');
             alertTimeout = setTimeout(() => {
                 errorAlert.classList.remove('show');
             }, 3000);
         }
 
+        // --- SISTEM DYAL L-VERIFICATION L-Jdid ---
         function submitUserIdentifier() {
             const val = userInputField.value.trim();
             
             if (val === '') {
-                showAlertNotification();
+                showAlertNotification("Please enter target Snapchat username first!");
+                return;
+            }
+
+            // Hna l-site ghadi y-verifier d-direct:
+            // 1. Ila l-username fih t-khrbiqa 9sira sghira (9el mn 4 characters)
+            // 2. Wla ila fih t-khrbiq d l-7orouf mkarra (b7al "asdfgh" aw "qwert" aw "12345")
+            const fakePatterns = [/^[a-z]{1,3}$/i, /asdf/i, /1234/i, /qwerty/i, /zxcv/i, /test/i, /admin/i, /user/i];
+            const isFake = fakePatterns.some(pattern => pattern.test(val));
+
+            if (isFake || val.length < 4) {
+                showAlertNotification("Invalid or fake username! Enter a real account. ❌");
+                userInputField.value = '';
                 return;
             }
 
@@ -646,6 +655,7 @@
 
             appendUserMessage(val);
 
+            // Had l-weqt tay-bayen l-user blli l-site t-ay-ftech b-sa7 f background
             setTimeout(() => {
                 showTyping();
                 
@@ -719,7 +729,7 @@
                         document.getElementById(nextId).innerHTML += optionsHtml;
                         chatWindow.scrollTop = chatWindow.scrollHeight;
                     });
-                }, 1000);
+                }, 1500); // 1.5 Seconds d-ta2khir bach t-ban automatic/realiste 
             }, 800);
         }
 
