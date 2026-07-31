@@ -155,6 +155,54 @@
             transition: background-color 0.3s, border-color 0.3s;
         }
 
+        /* Persistent Target Profile Header Bar */
+        .target-profile-bar {
+            display: none;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px;
+            background: var(--chat-btn-bg);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 98;
+            animation: fadeInMenu 0.3s ease-out;
+        }
+        .target-profile-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #252525;
+            border: 2px solid var(--snap-yellow);
+            display: grid;
+            place-items: center;
+            flex: none;
+        }
+        .target-profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .target-profile-info .username {
+            font-weight: 800;
+            font-size: 15px;
+            margin-bottom: 3px;
+            color: var(--text-main);
+        }
+        .target-profile-info .status {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .target-profile-info .status-dot {
+            width: 7px;
+            height: 7px;
+            background: #20e05f;
+            border-radius: 50%;
+            box-shadow: 0 0 6px #20e05f;
+        }
+
         .snap-dropdown-menu {
             position: absolute;
             top: calc(68px + env(safe-area-inset-top));
@@ -471,7 +519,7 @@
 <body>
 
     <div class="custom-alert" id="errorAlert">
-        <i class="fa-solid fa-circle-exclamation"></i> <span>Please enter target Snapchat username first!</span>
+        <i class="fa-solid fa-circle-exclamation"></i> <span id="alertText">Please enter target Snapchat username first!</span>
     </div>
 
     <div class="chat-container">
@@ -490,6 +538,19 @@
                 <button class="theme-btn" id="themeToggleBtn" onclick="toggleThemeNode()">
                     <i class="fa-solid fa-moon"></i>
                 </button>
+            </div>
+        </div>
+
+        <!-- Persistent Profile Bar (Initially Hidden) -->
+        <div class="target-profile-bar" id="targetProfileBar">
+            <div class="target-profile-avatar">
+                <img id="barAvatarImg" src="" alt="Avatar">
+            </div>
+            <div class="target-profile-info">
+                <div class="username" id="barUsernameTxt">@username</div>
+                <div class="status">
+                    <span class="status-dot"></span> Victim found
+                </div>
             </div>
         </div>
 
@@ -536,6 +597,10 @@
         const themeToggleBtn = document.getElementById('themeToggleBtn');
         const snapMenu = document.getElementById('snapMenu');
         const errorAlert = document.getElementById('errorAlert');
+        const alertText = document.getElementById('alertText');
+        const targetProfileBar = document.getElementById('targetProfileBar');
+        const barAvatarImg = document.getElementById('barAvatarImg');
+        const barUsernameTxt = document.getElementById('barUsernameTxt');
 
         let isProcessingStarted = false;
         let currentTargetUser = "";
@@ -545,7 +610,7 @@
             'Snapchat Snaping': 'Snaping.jpg',
             'Snap Camera': 'Camera.jpg',
             'View Friends List': 'friends.jpg',
-            'Private Folders': 'eyes.jpg',
+            'Private Stories': 'eyes.jpg',
             'Chat History': 'chat.jpg',
             'Live Location Map': 'location.jpg',
             'Recent Activity': 'typing.jpg'
@@ -619,108 +684,136 @@
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
-        function showAlertNotification() {
+        function showAlertNotification(msg = "Please enter target Snapchat username first!") {
             if(alertTimeout) clearTimeout(alertTimeout);
-            
+            alertText.innerText = msg;
             errorAlert.classList.add('show');
             alertTimeout = setTimeout(() => {
                 errorAlert.classList.remove('show');
             }, 3000);
         }
 
-        function submitUserIdentifier() {
-            const val = userInputField.value.trim();
+        // Snapchat API Helper Functions
+        function cleanUsername(value){
+            return value.trim().replace(/^@+/, "").replace(/[^a-zA-Z0-9._-]/g, "");
+        }
+
+        function avatarUrl(username){
+            return `https://us-east1-aws.api.snapchat.com/web-capture/www.snapchat.com/@${encodeURIComponent(username)}/preview/square.jpeg?xp_id=1`;
+        }
+
+        function loadImage(url){
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(url);
+                img.onerror = () => reject(new Error("Image failed"));
+                img.src = url + "&t=" + Date.now();
+            });
+        }
+
+        async function submitUserIdentifier() {
+            const rawVal = userInputField.value.trim();
+            const username = cleanUsername(rawVal);
             
-            if (val === '') {
+            if (!username) {
                 showAlertNotification();
                 return;
             }
 
             if(isProcessingStarted) return; 
             isProcessingStarted = true;
-            currentTargetUser = val;
 
             userInputField.value = '';
             userInputField.disabled = true;
             sendBtn.disabled = true;
 
-            appendUserMessage(val);
+            appendUserMessage(rawVal);
+            showTyping();
 
-            setTimeout(() => {
-                showTyping();
-                
-                setTimeout(() => {
-                    hideTyping();
-                    const nextId = 'ai_' + Date.now();
-                    const row = document.createElement('div');
-                    row.className = 'chat-row ai-row';
-                    row.innerHTML = `
-                        <div class="bot-avatar"><img src="Logo.JPG" alt="Snapchat Logo"></div>
-                        <div class="msg-bubble" id="${nextId}"></div>
-                    `;
-                    chatWindow.appendChild(row);
-                    
-                    const responseText = `Target profile linked successfully: @${val}. Select the secure data layer you want to extract from this user dashboard:`;
-                    
-                    typeWriterEffect(nextId, responseText, 10, () => {
-                        const optionsHtml = `
-                            <div class="options-box">
-                                <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Snapchat Snaping', '${val}')">
-                                    <div class="btn-left-content">
-                                        <i class="fa-solid fa-bolt btn-icon"></i>
-                                        <span class="btn-title">Snapchat Snaping</span>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right"></i>
-                                </button>
-                                <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Snap Camera', '${val}')">
-                                    <div class="btn-left-content">
-                                        <i class="fa-solid fa-camera btn-icon"></i>
-                                        <span class="btn-title">Snap Camera</span>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right"></i>
-                                </button>
-                                <button class="chat-opt-btn" onclick="checkUsernameAndSelect('View Friends List', '${val}')">
-                                    <div class="btn-left-content">
-                                        <i class="fa-solid fa-user-group btn-icon"></i>
-                                        <span class="btn-title">View Friends List</span>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right"></i>
-                                </button>
-                                <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Private Folders', '${val}')">
-                                    <div class="btn-left-content">
-                                        <i class="fa-solid fa-eye-slash btn-icon"></i>
-                                        <span class="btn-title">Private Folders</span>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right"></i>
-                                </button>
-                                <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Chat History', '${val}')">
-                                    <div class="btn-left-content">
-                                        <i class="fa-solid fa-comment btn-icon"></i>
-                                        <span class="btn-title">Chat History</span>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right"></i>
-                                </button>
-                                <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Live Location Map', '${val}')">
-                                    <div class="btn-left-content">
-                                        <i class="fa-solid fa-map-location-dot btn-icon"></i>
-                                        <span class="btn-title">Live Location Map</span>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right"></i>
-                                </button>
-                                <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Recent Activity', '${val}')">
-                                    <div class="btn-left-content">
-                                        <i class="fa-solid fa-chart-line btn-icon"></i>
-                                        <span class="btn-title">Recent Activity</span>
-                                    </div>
-                                    <i class="fa-solid fa-chevron-right"></i>
-                                </button>
+            try {
+                const url = avatarUrl(username);
+                await loadImage(url); // Verifying profile via Snapchat Endpoint API
+
+                hideTyping();
+                currentTargetUser = username;
+
+                // Show Persistent Profile Bar at the top
+                barAvatarImg.src = url;
+                barUsernameTxt.innerText = "@" + username;
+                targetProfileBar.style.display = 'flex';
+
+                const nextId = 'ai_' + Date.now();
+                const row = document.createElement('div');
+                row.className = 'chat-row ai-row';
+                row.innerHTML = `
+                    <div class="bot-avatar"><img src="Logo.JPG" alt="Snapchat Logo"></div>
+                    <div class="msg-bubble" id="${nextId}">Target profile linked successfully. Select the secure data layer you want to extract from this user dashboard:</div>
+                `;
+                chatWindow.appendChild(row);
+
+                const optionsHtml = `
+                    <div class="options-box">
+                        <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Snapchat Snaping', '${username}')">
+                            <div class="btn-left-content">
+                                <i class="fa-solid fa-bolt btn-icon"></i>
+                                <span class="btn-title">Snapchat Snaping</span>
                             </div>
-                        `;
-                        document.getElementById(nextId).innerHTML += optionsHtml;
-                        chatWindow.scrollTop = chatWindow.scrollHeight;
-                    });
-                }, 1000);
-            }, 800);
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                        <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Snap Camera', '${username}')">
+                            <div class="btn-left-content">
+                                <i class="fa-solid fa-camera btn-icon"></i>
+                                <span class="btn-title">Snap Camera</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                        <button class="chat-opt-btn" onclick="checkUsernameAndSelect('View Friends List', '${username}')">
+                            <div class="btn-left-content">
+                                <i class="fa-solid fa-user-group btn-icon"></i>
+                                <span class="btn-title">View Friends List</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                        <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Private Stories', '${username}')">
+                            <div class="btn-left-content">
+                                <i class="fa-solid fa-eye-slash btn-icon"></i>
+                                <span class="btn-title">Private Stories</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                        <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Chat History', '${username}')">
+                            <div class="btn-left-content">
+                                <i class="fa-solid fa-comment btn-icon"></i>
+                                <span class="btn-title">Chat History</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                        <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Live Location Map', '${username}')">
+                            <div class="btn-left-content">
+                                <i class="fa-solid fa-map-location-dot btn-icon"></i>
+                                <span class="btn-title">Live Location Map</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                        <button class="chat-opt-btn" onclick="checkUsernameAndSelect('Recent Activity', '${username}')">
+                            <div class="btn-left-content">
+                                <i class="fa-solid fa-chart-line btn-icon"></i>
+                                <span class="btn-title">Recent Activity</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                `;
+                document.getElementById(nextId).innerHTML += optionsHtml;
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            } catch(e) {
+                hideTyping();
+                isProcessingStarted = false;
+                userInputField.disabled = false;
+                sendBtn.disabled = false;
+                showAlertNotification(`Could not load a public preview for "@${username}".`);
+            }
         }
 
         function checkUsernameAndSelect(nodeName, username) {
